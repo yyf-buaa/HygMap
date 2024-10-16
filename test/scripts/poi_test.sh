@@ -1,0 +1,8 @@
+python test/poi_test.py --model SkipGram --dataset pt --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/porto/poi/poi_embedding_SkipGram_porto_128.npy"
+python test/poi_test.py --model Tale --dataset pt --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/porto/poi/poi_embedding_Tale_porto_128.npy"
+python test/poi_test.py --model Teaser --dataset pt --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/porto/poi/poi_embedding_Teaser_porto_128.npy"
+python test/poi_test.py --model POI2Vec --dataset pt --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/porto/poi/poi_embedding_POI2Vec_porto_128.npy"
+#python test/poi_test.py --model CACSR --dataset sf --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/new/cacsr.npy"
+python test/poi_test.py --model CTLE --dataset pt --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/porto/poi/poi_embedding_CTLE_porto_128.npy"
+python test/poi_test.py --model Hier --dataset pt --path "/home/panda/private/tangyb/tyb/remote/representation/raw_data/new/embeddings/porto/poi/poi_embedding_Hier_porto_128.npy"
+python test/poi_test.py --model HyperMap --dataset sf --path "/home/panda/private/jjw/yyf/HOME-GCL-main/libcity/cache/583243/evaluate_cache/poi_embedding_HyperMap_sf_128.npy"

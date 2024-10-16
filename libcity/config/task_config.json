@@ -1,0 +1,24 @@
+{
+    "STRL": {
+        "HOME": {
+            "dataset_class": "HOMEDataset",
+            "executor": "HOMEExecutor",
+            "evaluator": "HOMEEvaluator"
+        },
+        "HyperMap": {
+            "dataset_class": "HOMEDataset",
+            "executor": "HOMEExecutor",
+            "evaluator": "HOMEEvaluator"
+        },
+        "IntraEncoder": {
+            "dataset_class": "IntraDataset",
+            "executor": "IntraExecutor",
+            "evaluator": "HOMEEvaluator"
+        },
+        "InterEncoder": {
+            "dataset_class": "InterDataset",
+            "executor": "InterExecutor",
+            "evaluator": "HOMEEvaluator"
+        }
+    }
+}
