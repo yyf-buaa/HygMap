@@ -237,14 +237,14 @@ class RegionEvaluator():
         pass
 
     def evaluation_cluster(self, y_truth, useful_index, node_emb, item_type):
-        kinds = self.cluster_kinds
-        self._logger.info('Start Kmeans, data.shape = {}, kinds = {}'.format(
-            str(node_emb.shape), kinds))
-        k_means = KMeans(n_clusters=self.cluster_kinds, random_state=self.seed)
-        k_means.fit(node_emb)
-        labels = k_means.labels_
-        y_predict = k_means.predict(node_emb)
-        y_predict_useful = y_predict[useful_index]
+        # kinds = self.cluster_kinds
+        # self._logger.info('Start Kmeans, data.shape = {}, kinds = {}'.format(
+        #     str(node_emb.shape), kinds))
+        # k_means = KMeans(n_clusters=self.cluster_kinds, random_state=self.seed)
+        # k_means.fit(node_emb)
+        # labels = k_means.labels_
+        # y_predict = k_means.predict(node_emb)
+        # y_predict_useful = y_predict[useful_index]
         # nmi = normalized_mutual_info_score(y_truth, y_predict_useful)
         # ars = adjusted_rand_score(y_truth, y_predict_useful)
         # # SC指数
@@ -264,7 +264,7 @@ class RegionEvaluator():
         x_input_tsne = normalize(node_emb, norm='l2', axis=1)  # 按行归一化
         tsne = manifold.TSNE(n_components=2, init='pca', random_state=self.seed)  # n_components=2降维为2维并且可视化
         x_tsne = tsne.fit_transform(x_input_tsne)
-        sns.scatterplot(x=x_tsne[:, 0], y=x_tsne[:, 1], hue=y_predict, palette='Set1', legend=True, linewidth=0, )
+        sns.scatterplot(x=x_tsne[:, 0][useful_index], y=x_tsne[:, 1][useful_index], hue=y_truth, palette='Set1', legend=True, linewidth=0, )
         result_path = './test/result/{}_{}_{}_region/evaluate_{}_{}_{}.png'. \
             format(self.model, self.dataset, str(self.output_dim), self.model, self.dataset, str(self.output_dim))
         plt.title('{} {} {}'.format(item_type, self.model, self.dataset))
@@ -276,7 +276,7 @@ class RegionEvaluator():
         data = pd.read_csv(
             './raw_data/{}/regionmap_{}/regionmap_{}.geo'.format(
                 self.dataset, self.dataset, self.dataset))
-        label_name = col_name = 'region_type'
+        label_name = col_name = "region_type"
         try:
             label = data[col_name].dropna().astype(int).values
         except:
@@ -312,13 +312,13 @@ class RegionEvaluator():
             f'Selected region emb shape = {X.shape}, label shape = {y.shape}, label min = {y.min()}, label max = {y.max()}, num_classes = {num_classes}')
         micro_f1, macro_f1 = evaluation_classify(X, y, kfold=5, num_classes=num_classes, seed=self.seed,
                                                  output_dim=self.output_dim)
-        self._logger.info('micro F1: {:6f}, macro F1: {:6f}'.format(micro_f1, macro_f1))
+        print('micro F1: {:6f}, macro F1: {:6f}'.format(micro_f1, macro_f1))
         return y, useful_index, micro_f1, macro_f1
 
     def _valid_flow_using_bilinear(self, emb):
         od_flow = np.load(
-            "/home/panda/private/jjw/yyf/HOME-GCL-main/raw_data/pt/traj_region_test_od.npy").astype('float32')
-        mae, rmse, mape, r2 = evaluation_bilinear_reg(emb, od_flow/10, kfold=5, seed=self.seed, output_dim=self.output_dim,
+            "/home/panda/private/jjw/yyf/HOME-GCL-main/raw_data/{}/traj_region_test_od.npy".format(self.dataset)).astype('float32')
+        mae, rmse, mape, r2 = evaluation_bilinear_reg(emb, od_flow, kfold=5, seed=self.seed, output_dim=self.output_dim,
                                             )
         self._logger.info(f"Result of odflow bilinear estimation in {self.dataset}:")
         self._logger.info('MAE = {:6f}, RMSE = {:6f}, R2 = {:6f}, MAPE = {:6f}'.format(mae, rmse, r2, mape))
@@ -326,7 +326,7 @@ class RegionEvaluator():
 
     def _valid_flow(self, emb):
         self._logger.warning(f'Evaluating region In-Flow Prediction')
-        inflow = np.load("/home/panda/private/jjw/yyf/HOME-GCL-main/raw_data/pt/traj_region_test_in_avg.npy")
+        inflow = np.load("/home/panda/private/jjw/yyf/HOME-GCL-main/raw_data/{}/traj_region_test_in_avg.npy".format(self.dataset))
         in_mae, in_rmse, in_mape, in_r2 = evaluation_reg(emb, inflow, kfold=5, seed=self.seed,
                                                          output_dim=self.output_dim)
         self._logger.info(f"Result of inflow estimation in {self.dataset}:")
@@ -334,7 +334,7 @@ class RegionEvaluator():
 
         self._logger.warning(f'Evaluating region Out-Flow Prediction')
         outflow = np.load(
-            os.path.join("/home/panda/private/jjw/yyf/HOME-GCL-main/raw_data/pt/traj_region_test_out_avg.npy"))
+            "/home/panda/private/jjw/yyf/HOME-GCL-main/raw_data/{}/traj_region_test_out_avg.npy".format(self.dataset))
         out_mae, out_rmse, out_mape, out_r2 = evaluation_reg(emb, outflow, kfold=5, seed=self.seed,
                                                              output_dim=self.output_dim)
         self._logger.info("Result of {} estimation in {}:".format('outflow', self.dataset))
@@ -360,20 +360,20 @@ class RegionEvaluator():
         self._logger.warning('Evaluating Region Classification')
         y_truth, useful_index, region_micro_f1, region_macro_f1 = self._valid_clf(
             region_emb)
-
-        mae, rmse, r2, mape = self._valid_flow(region_emb)
-        bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(region_emb)
         self.evaluation_cluster(y_truth,useful_index,region_emb,'region')
-        self.result['clf_micro_f1'] = [region_micro_f1]
-        self.result['clf_macro_f1'] = [region_macro_f1]
-        self.result['mae'] = [mae]
-        self.result['rmse'] = [rmse]
-        self.result['mape'] = [mape]
-        self.result['r2'] = [r2]
-        self.result['bilinear_mae'] = [bilinear_mae]
-        self.result['bilinear_rmse'] = [bilinear_rmse]
-        self.result['bilinear_mape'] = [bilinear_mape]
-        self.result['bilinear_r2'] = [bilinear_r2]
+        # mae, rmse, r2, mape = self._valid_flow(region_emb)
+        # bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(region_emb)
+        # #self.evaluation_cluster(y_truth,useful_index,region_emb,'region')
+        # self.result['clf_micro_f1'] = [region_micro_f1]
+        # self.result['clf_macro_f1'] = [region_macro_f1]
+        # self.result['mae'] = [mae]
+        # self.result['rmse'] = [rmse]
+        # self.result['mape'] = [mape]
+        # self.result['r2'] = [r2]
+        # self.result['bilinear_mae'] = [bilinear_mae]
+        # self.result['bilinear_rmse'] = [bilinear_rmse]
+        # self.result['bilinear_mape'] = [bilinear_mape]
+        # self.result['bilinear_r2'] = [bilinear_r2]
 
     def evaluate(self):
         # self.evaluate_region_embedding()

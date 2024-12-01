@@ -24,7 +24,7 @@ class InterDataset(AbstractDataset):
         self.region_embedding = torch.from_numpy(self.region_embedding).to(self.device)
         self.poi_embedding = torch.from_numpy(self.poi_embedding).to(self.device)
         region_num = self.region_embedding.shape[0]
-        df = pd.read_csv('/home/panda/private/jjw/raw_data/porto/porto.rel')
+        df = pd.read_csv("/home/panda/private/jjw/raw_data/sanfransico/sanfransico.rel")
         df = df[(df['rel_type'] == 'region2road') | (df['rel_type'] == 'region2poi')].reset_index(drop=True)
         self.hyperedge_index = []
         for i in range(len(df)):

@@ -7,6 +7,7 @@ from tqdm import tqdm
 from sklearn.preprocessing import KBinsDiscretizer
 import torch
 from torch_geometric.data import HeteroData
+
 class HeteroRoadFeatureDataset(NetWorkDataset):
     def __init__(self, config):
         self.config = config
@@ -30,7 +31,7 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
         assert os.path.exists(self.data_path + self.sem_file + '.mob')
         self.geo_file = self._load_geo()
         self.rel_file = self._load_rel()
-        #self.sem_file = self._load_sem()
+        self.sem_file = self._load_sem()
         self.mob_file = self._load_mob()
         self._cal_degree(self.geo_file, self.adj_mx_rel)
         self.road_features, self.road_fea_dim = self._load_geo_feature(self.geo_file)
@@ -66,6 +67,35 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
         self._logger.info("edge_index shape= " + str(self.edge_index_rel.shape) + ", edge_weight shape= "
                           + str(self.edge_weight_rel.shape) + ', edges=' + str(self.edge_index_rel.shape[1]))
         return relfile
+
+    def drop_edge_precent(self, edge_index, edge_weight, percent):
+        # edge_weight的数量
+        num_edges = edge_weight.size(0)
+
+        # 根据百分比计算要保留的边数量
+        num_keep = int(num_edges * percent)
+
+        # 根据 edge_weight 的大小进行排序（降序）
+        sorted_indices = torch.argsort(edge_weight, descending=True)
+
+        # 选择前 num_keep 个边的索引
+        filtered_indices = sorted_indices[:num_keep]
+
+        # 筛选边和对应的权重
+        filtered_edge_index = edge_index[:, filtered_indices]
+        filtered_edge_weight = edge_weight[filtered_indices]
+
+        return filtered_edge_index, filtered_edge_weight
+
+    def drop_edge_threshold(self, edge_index, edge_weight, threshold):
+        # 找到满足条件的边索引
+        filtered_indices = torch.where(edge_weight > threshold)[0]  # 找出大于阈值的边索引
+
+        # 筛选边和对应的权重
+        filtered_edge_index = edge_index[:, filtered_indices]
+        filtered_edge_weight = edge_weight[filtered_indices]
+
+        return filtered_edge_index, filtered_edge_weight
 
     def _load_sem(self):
         semfile = pd.read_csv(self.data_path + self.sem_file + '.sem')
@@ -121,12 +151,12 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
         road_info.insert(loc=road_info.shape[1], column='outdegree', value=outdegree_list)
 
     def _load_geo_feature(self, road_info):
-       #  node_features = road_info[['geo_id', 'type', 'coordinates', 'highway', 'lanes', 'tunnel', 'bridge',
-       # 'roundabout', 'oneway', 'length', 'maxspeed', 'u', 'v','m_lon', 'm_lat']]
-        node_features = road_info[
-           ['geo_id', 'coordinates', 'road_lanes', 'road_length', 'road_maxspeed', 'm_lon', 'm_lat']]
-        cat_features = ['road_lanes','road_maxspeed']
-        num_features = ['road_length', 'm_lon', 'm_lat']
+        node_features = road_info[['geo_id', 'type', 'coordinates', 'lanes', 'tunnel', 'bridge',
+       'roundabout', 'oneway', 'length', 'maxspeed', 'u', 'v','m_lon', 'm_lat']]
+        # node_features = road_info[
+        #    ['geo_id', 'coordinates', 'road_lanes', 'road_length', 'road_maxspeed', 'm_lon', 'm_lat']]
+        cat_features = ['lanes', 'tunnel', 'bridge','roundabout', 'oneway', 'maxspeed']
+        num_features = ['length', 'm_lon', 'm_lat']
         for fe in cat_features:
             node_features.loc[:, fe] = node_features.loc[:, fe].astype('int32')
         for fe in num_features:
@@ -139,15 +169,15 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
                 np.array(node_features['m_lat'].tolist()).reshape(-1, 1))
         discretizer = KBinsDiscretizer(n_bins=self.len_length_encode, encode='ordinal', strategy='uniform')
         node_features.loc[:, 'length_encode'] = discretizer.fit_transform(
-                np.array(node_features['road_length'].tolist()).reshape(-1, 1))
-        node_features = node_features[['road_lanes','road_maxspeed',
+                np.array(node_features['length'].tolist()).reshape(-1, 1))
+        node_features = node_features[['lanes', 'tunnel', 'bridge','roundabout', 'oneway', 'maxspeed',
                                        'length_encode', 'm_lon_encode', 'm_lat_encode']]
-        self.len_lanes = node_features['road_lanes'].max() + 1
-        # self.len_tunnel = node_features['tunnel'].max() + 1
-        # self.len_bridge = node_features['bridge'].max() + 1
-        # self.len_roundabout = node_features['roundabout'].max() + 1
-        # self.len_oneway = node_features['oneway'].max() + 1
-        self.len_maxspeed = node_features['road_maxspeed'].max() + 1
+        self.len_lanes = node_features['lanes'].max() + 1
+        self.len_tunnel = node_features['tunnel'].max() + 1
+        self.len_bridge = node_features['bridge'].max() + 1
+        self.len_roundabout = node_features['roundabout'].max() + 1
+        self.len_oneway = node_features['oneway'].max() + 1
+        self.len_maxspeed = node_features['maxspeed'].max() + 1
         node_features.to_csv(self.data_path + 'road_features_{}.csv'.format(self.dataset), index=False)
         node_features = np.array(node_features.values,dtype=float)
         self._logger.info('node_features: ' + str(node_features.shape))  # (N, fea_dim)
@@ -156,11 +186,12 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
     def get_data(self):
         road_x = torch.from_numpy(self.road_features).long()
         road_edge_index_rel = torch.tensor(self.edge_index_rel, dtype=torch.long)
-       # road_edge_index_sem = torch.tensor(self.edge_index_sem, dtype=torch.long)
+        road_edge_index_sem = torch.tensor(self.edge_index_sem, dtype=torch.long)
         road_edge_index_mob = torch.tensor(self.edge_index_mob, dtype=torch.long)
         road_edge_weight_rel = torch.from_numpy(self.edge_weight_rel).float()
-       # road_edge_weight_sem = torch.from_numpy(self.edge_weight_sem).float()
+        road_edge_weight_sem = torch.from_numpy(self.edge_weight_sem).float()
         road_edge_weight_mob = torch.from_numpy(self.edge_weight_mob).float()
+        road_edge_index_sem, road_edge_weight_sem = self.drop_edge_precent(road_edge_index_sem, road_edge_weight_sem,0.005)
         graph = HeteroData()
         graph['node'].x = road_x
         if 'geo' in self.edge_types:
@@ -169,24 +200,24 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
         if 'mob' in self.edge_types:
             graph['node', 'mob', 'node'].edge_index = road_edge_index_mob
             graph['node', 'mob', 'node'].edge_weight = road_edge_weight_mob
-        # if 'sem' in self.edge_types:
-        #     graph['node', 'sem', 'node'].edge_index = road_edge_index_sem
-        #     graph['node', 'sem', 'node'].edge_weight = road_edge_weight_sem
+        if 'sem' in self.edge_types:
+            graph['node', 'sem', 'node'].edge_index = road_edge_index_sem
+            graph['node', 'sem', 'node'].edge_weight = road_edge_weight_sem
         graph = graph.to(self.device)
         self.meta_data = graph.metadata()
         return graph, None, None
 
     def get_data_feature(self):
         return {"road_edge_index_rel": self.edge_index_rel,
-                # "road_edge_index_sem": self.edge_index_sem,
+                "road_edge_index_sem": self.edge_index_sem,
                 "road_edge_index_mob": self.edge_index_mob,
                 "road_num_nodes": self.num_roads,
                 "road_num_edges_rel": self.num_edges_rel,
-                # "road_num_edges_sem": self.num_edges_sem,
+                "road_num_edges_sem": self.num_edges_sem,
                 "road_num_edges_mob": self.num_edges_mob,
                 "road_geo_file": self.geo_file,
                 "road_rel_file": self.rel_file,
-                # "road_sem_file": self.sem_file,
+                "road_sem_file": self.sem_file,
                 "road_mob_file": self.mob_file,
                 "road_geo_to_ind": self.geo_to_ind,
                 "road_ind_to_geo": self.ind_to_geo,
@@ -194,12 +225,11 @@ class HeteroRoadFeatureDataset(NetWorkDataset):
                 'road_len_lon_encode': self.len_lon_encode,
                 'road_len_lat_encode': self.len_lat_encode,
                 'road_len_length_encode': self.len_length_encode,
-                # 'road_len_highway': self.len_highway,
                 'road_len_lanes': self.len_lanes,
                 'road_len_maxspeed': self.len_maxspeed,
-                # 'road_len_tunnel': self.len_tunnel ,
-                # 'road_len_bridge': self.len_bridge ,
-                # 'road_len_roundabout': self.len_roundabout ,
-                # 'road_len_oneway': self.len_oneway,
+                'road_len_tunnel': self.len_tunnel ,
+                'road_len_bridge': self.len_bridge ,
+                'road_len_roundabout': self.len_roundabout ,
+                'road_len_oneway': self.len_oneway,
                 'meta_data': self.meta_data
                 }

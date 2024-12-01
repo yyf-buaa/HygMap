@@ -13,7 +13,13 @@ import argparse
 import os
 import random
 
-
+import argparse
+import os
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import normalize
+from sklearn import manifold
+import seaborn as sns
 def gen_index_map(df, column, offset=0):
     index_map = {origin: index + offset
                  for index, origin in enumerate(df[column].drop_duplicates())}
@@ -232,25 +238,63 @@ class RoadEvaluator():
     def collect(self, batch):
         pass
 
+    def evaluation_cluster(self, y_truth, useful_index, node_emb, item_type):
+        # kinds = self.cluster_kinds
+        # self._logger.info('Start Kmeans, data.shape = {}, kinds = {}'.format(
+        #     str(node_emb.shape), kinds))
+        # k_means = KMeans(n_clusters=self.cluster_kinds, random_state=self.seed)
+        # k_means.fit(node_emb)
+        # labels = k_means.labels_
+        # y_predict = k_means.predict(node_emb)
+        # y_predict_useful = y_predict[useful_index]
+        # nmi = normalized_mutual_info_score(y_truth, y_predict_useful)
+        # ars = adjusted_rand_score(y_truth, y_predict_useful)
+        # # SC指数
+        # sc = float(metrics.silhouette_score(node_emb, labels, metric='euclidean'))
+        # # DB指数
+        # db = float(metrics.davies_bouldin_score(node_emb, labels))
+        # # CH指数
+        # ch = float(metrics.calinski_harabasz_score(node_emb, labels))
+        # self._logger.info("Evaluate result is sc = {:6f}, db = {:6f}, ch = {:6f}, nmi = {:6f}, ars = {:6f}".format(sc, db, ch, nmi, ars))
+        # result_path = './libcity/cache/{}/evaluate_cache/kmeans_evaluate_{}_{}_{}_{}_{}.json'. \
+        #     format(self.exp_id, item_type, self.model, self.dataset, str(self.output_dim), str(kinds))
+        # json.dump(self.result, open(result_path, 'w'), indent=4)
+        # self._logger.info('Evaluate result is saved at {}'.format(result_path))
+
+        # TSNE可视化
+        plt.figure()
+        x_input_tsne = normalize(node_emb, norm='l2', axis=1)  # 按行归一化
+        tsne = manifold.TSNE(n_components=2, init='pca', random_state=self.seed)  # n_components=2降维为2维并且可视化
+        x_tsne = tsne.fit_transform(x_input_tsne)
+        sns.scatterplot(x=x_tsne[:, 0][useful_index], y=x_tsne[:, 1][useful_index], hue=y_truth, palette='Set1', legend=True, linewidth=0, )
+        result_path = './test/result/{}_{}_{}_road/evaluate_{}_{}_{}.png'. \
+            format(self.model, self.dataset, str(self.output_dim), self.model, self.dataset, str(self.output_dim))
+        plt.title('{} {} {}'.format(item_type, self.model, self.dataset))
+        plt.savefig(result_path)
+        # self._logger.info('Kmeans result for TSNE is saved at {}'.format(result_path))
+        # return sc, db, ch, nmi, ars
+
     def _valid_clf(self, emb):
         data = pd.read_csv(
             './raw_data/{}/roadmap_{}/roadmap_{}.geo'.format(
                 self.dataset, self.dataset, self.dataset))
-        label_name = col_name = 'road_highway'
+        label_name = col_name = 'highway'
         try:
             label = data[col_name].dropna().astype(int).values
         except:
             mp = gen_index_map(data, col_name)
             label = data[col_name].dropna().map(mp).values
-        num_classes = 5
-        num_classes = min(num_classes, len(set(label)))
-        tmp = []
-        for i in range(label.min(), label.max() + 1):
-            tmp.append((label[label == i].shape[0], i))
-        assert num_classes <= len(tmp)
-        tmp.sort()
-        tmp = [item[1] for item in tmp]
-        useful_label = tmp[::-1][:num_classes]
+
+        num_classes = 2
+        # num_classes = min(num_classes, len(set(label)))
+        # tmp = []
+        # for i in range(label.min(), label.max() + 1):
+        #     tmp.append((label[label == i].shape[0], i))
+        # assert num_classes <= len(tmp)
+        # tmp.sort()
+        # tmp = [item[1] for item in tmp]
+        # useful_label = tmp[::-1][:num_classes]
+        useful_label = [2,3]
         relabel = {}
         for i, j in enumerate(useful_label):
             relabel[j] = i
@@ -262,13 +306,15 @@ class RoadEvaluator():
         y = []
         for i, label_i in enumerate(label):
             if label_i in useful_label:
-                useful_index.append(i)
-                X.append(emb[i: i + 1, :])
-                y.append(relabel[label_i])
+                r = random.randint(1, 30)
+                if r == 6:
+                    useful_index.append(i)
+                    X.append(emb[i: i + 1, :])
+                    y.append(relabel[label_i])
         X = np.concatenate(X, axis=0)
         y = np.array(y)
 
-        self._logger.info(
+        print(
             f'Selected road emb shape = {X.shape}, label shape = {y.shape}, label min = {y.min()}, label max = {y.max()}, num_classes = {num_classes}')
         micro_f1, macro_f1 = evaluation_classify(X, y, kfold=5, num_classes=num_classes, seed=self.seed,
                                                  output_dim=self.output_dim)
@@ -323,49 +369,50 @@ class RoadEvaluator():
 
     def evaluate_road_embedding(self):
         road_emb = np.load(self.road_embedding_path)
-        print(
-            'Load road emb {}, shape = {}'.format(
-                self.road_embedding_path,
-                road_emb.shape))
-        self._logger.warning('Evaluating Road Classification')
+        # print(
+        #     'Load road emb {}, shape = {}'.format(
+        #         self.road_embedding_path,
+        #         road_emb.shape))
+        # self._logger.warning('Evaluating Road Classification')
         y_truth, useful_index, road_micro_f1, road_macro_f1 = self._valid_clf(
             road_emb)
-        speed_mae, speed_rmse = self._valid_road_speed(road_emb)
-        mae, rmse, r2, mape = self._valid_flow(road_emb)
-        bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(
-            road_emb)
-
-        self.result['road_micro_f1'] = [road_micro_f1]
-        self.result['road_macro_f1'] = [road_macro_f1]
-        self.result['speed_mae'] = [float(speed_mae)]
-        self.result['speed_rmse'] = [float(speed_rmse)]
-        self.result['mae'] = [mae]
-        self.result['rmse'] = [rmse]
-        self.result['mape'] = [mape]
-        self.result['r2'] = [r2]
-        self.result['bilinear_mae'] = [bilinear_mae]
-        self.result['bilinear_rmse'] = [bilinear_rmse]
-        self.result['bilinear_mape'] = [bilinear_mape]
-        self.result['bilinear_r2'] = [bilinear_r2]
+        # speed_mae, speed_rmse = self._valid_road_speed(road_emb)
+        # mae, rmse, r2, mape = self._valid_flow(road_emb)
+        # bilinear_mae,bilinear_rmse,bilinear_r2,bilinear_mape = self._valid_flow_using_bilinear(
+        #     road_emb)
+        #
+        # self.result['road_micro_f1'] = [road_micro_f1]
+        # self.result['road_macro_f1'] = [road_macro_f1]
+        # self.result['speed_mae'] = [float(speed_mae)]
+        # self.result['speed_rmse'] = [float(speed_rmse)]
+        # self.result['mae'] = [mae]
+        # self.result['rmse'] = [rmse]
+        # self.result['mape'] = [mape]
+        # self.result['r2'] = [r2]
+        # self.result['bilinear_mae'] = [bilinear_mae]
+        # self.result['bilinear_rmse'] = [bilinear_rmse]
+        # self.result['bilinear_mape'] = [bilinear_mape]
+        # self.result['bilinear_r2'] = [bilinear_r2]
+        self.evaluation_cluster(y_truth, useful_index, node_emb=road_emb,item_type='road')
 
 
     def evaluate(self):
         # self.evaluate_region_embedding()
         self.evaluate_road_embedding()
-        ensure_dir('./test/result/{}_{}_{}_road/'.format(self.model, self.dataset, str(self.output_dim),self.model))
-        # result_path = './test/result/{}_{}_{}_road/evaluate_road_{}_{}_{}.json'. \
-        #     format(self.model, self.dataset, str(self.output_dim),self.model, self.dataset, str(self.output_dim))
-        # print(self.result)
-       # json.dump(self.result, open(result_path, 'w'), indent=4)
+       #  ensure_dir('./test/result/{}_{}_{}_road/'.format(self.model, self.dataset, str(self.output_dim),self.model))
+       #  # result_path = './test/result/{}_{}_{}_road/evaluate_road_{}_{}_{}.json'. \
+       #  #     format(self.model, self.dataset, str(self.output_dim),self.model, self.dataset, str(self.output_dim))
+       #  # print(self.result)
+       # # json.dump(self.result, open(result_path, 'w'), indent=4)
+       # #  print('Evaluate result is saved at {}'.format(result_path))
+       #
+       #  df = pd.DataFrame.from_dict(self.result, orient='columns')
+       #  print(df)
+       #  result_path = './test/result/{}_{}_{}_road/evaluate_road_{}_{}_{}.csv'. \
+       #      format(self.model, self.dataset, str(self.output_dim),self.model, self.dataset, str(self.output_dim))
+       #  df.to_csv(result_path, index=False)
        #  print('Evaluate result is saved at {}'.format(result_path))
-
-        df = pd.DataFrame.from_dict(self.result, orient='columns')
-        print(df)
-        result_path = './test/result/{}_{}_{}_road/evaluate_road_{}_{}_{}.csv'. \
-            format(self.model, self.dataset, str(self.output_dim),self.model, self.dataset, str(self.output_dim))
-        df.to_csv(result_path, index=False)
-        print('Evaluate result is saved at {}'.format(result_path))
-        return self.result
+       #  return self.result
 
     def save_result(self, save_path, filename=None):
         pass

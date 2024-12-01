@@ -1,3 +1,4 @@
 {
-   "entity_type": "poi"
+   "entity_type": "poi",
+   "edge_types": ["mob", "sem"]
 }

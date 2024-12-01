@@ -23,7 +23,7 @@
   "max_grad_norm": 1,
   "use_early_stop": true,
   "patience": 500,
-  "edge_types": ["geo", "mob", "sem"],
+  "edge_types": ["geo", "mob"],
   "edge_agu": true,
   "fea_agu": true,
   "intra_road2region": false

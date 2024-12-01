@@ -130,7 +130,7 @@ class InterEncoder(nn.Module):
         self.mask_poi_token = nn.Parameter(torch.rand(1,self.hid_dim)).to(self.device)
         self.mask_road_token = nn.Parameter(torch.rand(1, self.hid_dim)).to(self.device)
         self.mask_region_token = nn.Parameter(torch.rand(1, self.hid_dim)).to(self.device)
-    def encoding_mask_noise(self, x, enc_mask_token, mask_rate=0.3):
+    def encoding_mask_noise(self, x, enc_mask_token, mask_rate=0.5):
         num_nodes = x.shape[0]
         perm = torch.randperm(num_nodes, device=x.device)
         num_mask_nodes = int(mask_rate * num_nodes)

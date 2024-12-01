@@ -1,3 +1,2 @@
-from libcity.executor.home_executor import HOMEExecutor
 from libcity.executor.intra_executor import IntraExecutor
 from libcity.executor.inter_executor import InterExecutor

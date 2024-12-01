@@ -126,21 +126,21 @@ class HeteroRegionFeatureDataset(NetWorkDataset):
         road_info.insert(loc=road_info.shape[1], column='outdegree', value=outdegree_list)
 
     def _load_geo_feature(self, region_info):
-        #node_features = region_info[['geo_id','PopDensity','Flag_MHI_P','Shape_Leng','Shape_Area','m_lon','m_lat']]
-        node_features = region_info[
-            ['geo_id', 'Shape_Leng', 'Shape_Area', 'm_lon', 'm_lat']]
-        #cat_features = ['Flag_MHI_P']
+        node_features = region_info[['geo_id','PopDensity','Flag_MHI_P','Shape_Leng','Shape_Area','m_lon','m_lat']]
+        # node_features = region_info[
+        #     ['geo_id', 'Shape_Leng', 'Shape_Area', 'm_lon', 'm_lat']]
+        # cat_features = ['Flag_MHI_P']
         cat_features = []
-        #num_features = ['PopDensity', 'Shape_Leng','Shape_Area','m_lon','m_lat']
-        #node_features.loc[:, 'Flag_MHI_P'] = node_features.loc[:, 'Flag_MHI_P'].apply(lambda x: 1 if x == 'Y' else 0)
-        num_features = ['Shape_Leng', 'Shape_Area', 'm_lon', 'm_lat']
+        num_features = ['PopDensity', 'Shape_Leng','Shape_Area','m_lon','m_lat']
+       # node_features.loc[:, 'Flag_MHI_P'] = node_features.loc[:, 'Flag_MHI_P'].apply(lambda x: 1 if x == 'Y' else 0)
+        # num_features = ['Shape_Leng', 'Shape_Area', 'm_lon', 'm_lat']
         for fe in cat_features:
             node_features.loc[:, fe] = node_features.loc[:, fe].astype('int32')
         for fe in num_features:
             node_features.loc[:, fe] = node_features.loc[:, fe].astype('float32')
-        # discretizer = KBinsDiscretizer(n_bins=self.len_Pop_Density_encode, encode='ordinal', strategy='uniform')
-        # node_features.loc[:, 'PopDensity_encode'] = discretizer.fit_transform(
-        #     np.array(node_features['PopDensity'].tolist()).reshape(-1, 1))
+        discretizer = KBinsDiscretizer(n_bins=self.len_Pop_Density_encode, encode='ordinal', strategy='uniform')
+        node_features.loc[:, 'PopDensity_encode'] = discretizer.fit_transform(
+            np.array(node_features['PopDensity'].tolist()).reshape(-1, 1))
         discretizer = KBinsDiscretizer(n_bins=self.len_lon_encode, encode='ordinal', strategy='uniform')
         node_features.loc[:, 'm_lon_encode'] = discretizer.fit_transform(
                 np.array(node_features['m_lon'].tolist()).reshape(-1, 1))
@@ -154,7 +154,7 @@ class HeteroRegionFeatureDataset(NetWorkDataset):
         discretizer = KBinsDiscretizer(n_bins=self.len_Shape_Leng_encode, encode='ordinal', strategy='uniform')
         node_features.loc[:, 'Shape_Leng_encode'] = discretizer.fit_transform(
             np.array(node_features['Shape_Leng'].tolist()).reshape(-1, 1))
-        node_features = node_features[[ 'Shape_Leng_encode','Shape_Area_encode','m_lon_encode','m_lat_encode']]
+        node_features = node_features[['PopDensity_encode','Shape_Leng_encode','Shape_Area_encode','m_lon_encode','m_lat_encode']]
         #self.len_Flag_MHI_P = node_features['Flag_MHI_P'].max() + 1
         node_features.to_csv(self.data_path + 'region_features_{}.csv'.format(self.dataset), index=False)
         node_features = np.array(node_features.values,dtype=float)

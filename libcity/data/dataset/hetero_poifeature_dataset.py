@@ -35,6 +35,34 @@ class HeteroPOIFeatureDataset(NetWorkDataset):
         self.mob_file = self._load_mob()
         self._cal_degree(self.geo_file, self.adj_mx_rel)
         self.poi_features, self.poi_fea_dim = self._load_geo_feature(self.geo_file)
+    def drop_edge_precent(self, edge_index, edge_weight, percent):
+        # edge_weight的数量
+        num_edges = edge_weight.size(0)
+
+        # 根据百分比计算要保留的边数量
+        num_keep = int(num_edges * percent)
+
+        # 根据 edge_weight 的大小进行排序（降序）
+        sorted_indices = torch.argsort(edge_weight, descending=True)
+
+        # 选择前 num_keep 个边的索引
+        filtered_indices = sorted_indices[:num_keep]
+
+        # 筛选边和对应的权重
+        filtered_edge_index = edge_index[:, filtered_indices]
+        filtered_edge_weight = edge_weight[filtered_indices]
+
+        return filtered_edge_index, filtered_edge_weight
+
+    def drop_edge_threshold(self, edge_index, edge_weight, threshold):
+        # 找到满足条件的边索引
+        filtered_indices = torch.where(edge_weight > threshold)[0]  # 找出大于阈值的边索引
+
+        # 筛选边和对应的权重
+        filtered_edge_index = edge_index[:, filtered_indices]
+        filtered_edge_weight = edge_weight[filtered_indices]
+
+        return filtered_edge_index, filtered_edge_weight
 
     def _load_geo(self):
         geofile = pd.read_csv(self.data_path + self.geo_file + '.geo')
@@ -151,6 +179,8 @@ class HeteroPOIFeatureDataset(NetWorkDataset):
         poi_edge_weight_rel = torch.from_numpy(self.edge_weight_rel).float()
         poi_edge_weight_sem = torch.from_numpy(self.edge_weight_sem).float()
         poi_edge_weight_mob = torch.from_numpy(self.edge_weight_mob).float()
+        poi_edge_index_rel, poi_edge_weight_rel = self.drop_edge_threshold(poi_edge_index_rel, poi_edge_weight_rel, 0.1)
+        poi_edge_index_sem, poi_edge_weight_sem = self.drop_edge_precent(poi_edge_index_sem, poi_edge_weight_sem, 0.05)
         graph  = HeteroData()
         graph['node'].x = poi_x
         if 'geo' in self.edge_types:
