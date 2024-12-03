@@ -126,10 +126,7 @@ class collection:
         lat = pad_to_tensor(src_lat).to(self.device)
         lng = pad_to_tensor(src_lng).to(self.device)
         inputs_hour = (inputs_timestamp % (24 * 60 * 60) / 60 / 60).long()
-        try:
-            src_duration = ((inputs_timestamp[:, 1:] - inputs_timestamp[:, :-1]) % (24 * 60 * 60) / 60 / 60).long()
-        except:
-            pdb.set_trace()
+        src_duration = ((inputs_timestamp[:, 1:] - inputs_timestamp[:, :-1]) % (24 * 60 * 60) / 60 / 60).long()
         src_duration = torch.clamp(src_duration, 0, 23)
         res=torch.zeros([src_duration.size(0),1],dtype=torch.long).to(self.device)
         inputs_duration = torch.hstack([res,src_duration])
@@ -190,7 +187,6 @@ def trajectory_based_classification(train_set, test_set, num_class, embed_layer,
             preds=model(inputs)
             if preds.shape[0] == 1:
                 continue
-            # pdb.set_trace()
             loss=loss_func(preds,targets)
             optimizer.zero_grad()
             loss.backward()
