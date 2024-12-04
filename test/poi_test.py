@@ -202,6 +202,10 @@ class POIEvaluator():
         self.data_path = './raw_data/' + self.dataset + '/'
         self.output_dim = config.get('output_dim', 128)
         self.poi_embedding_path = config.get('path', None)
+        if torch.cuda.is_available() and config.get('gpu_id', None) is not None:
+            self.device = torch.device(f"cuda:{config.get('gpu_id')}")
+        else:
+            self.device = torch.device("cpu")
 
     def collect(self, batch):
         pass
@@ -311,16 +315,14 @@ class POIEvaluator():
         y_truth, useful_index, poi_micro_f1, poi_macro_f1 = self._valid_clf(
             poi_emb)
         self.evaluation_cluster(y_truth,useful_index,poi_emb,'poi')
-
-        device = torch.device('cuda:1') # TODO
         config = {
             'dataset': self.dataset,
             'model': self.model, # 模型名称 
-            'exp_id': 0, # TODO
+            'exp_id': 0,
             'embed_size': self.output_dim,
             'd_model': self.output_dim,
             'output_dim': self.output_dim,
-            "device": device,
+            "device": self.device,
             "representation_object": 'poi',
             "save_result": True,
             "is_static": True,
@@ -334,12 +336,6 @@ class POIEvaluator():
         }
         logger = get_logger(config)
         embedding = poi_emb
-
-        # if self.dataset == 'prt':
-        #     shape = (4057, 128)
-        # else:
-        #     shape = (15675, 128)
-        # embedding = np.random.rand(*shape)
 
         poi_dataset = POIRepresentationDataset(config)
         data_feature = poi_dataset.get_data_feature()
@@ -387,6 +383,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--path', type=str)
+parser.add_argument('--gpu_id', type=int)
 # 解析参数
 args = parser.parse_args()
 args_dict = vars(args)
