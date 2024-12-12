@@ -5,4 +5,5 @@
 /libcity/log/*
 /libcity/__pycache__
 /libcity/*/__pycache__
+*/__pycache__
 *.npy

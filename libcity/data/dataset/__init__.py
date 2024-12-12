@@ -6,3 +6,4 @@ from libcity.data.dataset.hetero_poifeature_dataset import HeteroPOIFeatureDatas
 from libcity.data.dataset.home_dataset import HOMEDataset
 from libcity.data.dataset.intra_dataset import IntraDataset
 from libcity.data.dataset.inter_dataset import InterDataset
+from libcity.data.dataset.poi_representation_dataset import POIRepresentationDataset

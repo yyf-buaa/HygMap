@@ -1,1 +1,2 @@
 from libcity.evaluator.home_evaluator import HOMEEvaluator
+from libcity.evaluator.poi_representation_evaluator import POIRepresentationEvaluator

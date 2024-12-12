@@ -17,6 +17,19 @@ from sklearn.preprocessing import normalize
 from sklearn import manifold
 import seaborn as sns
 import random
+import sys
+
+# 获取上级目录的路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+
+# 将上级目录添加到 sys.path
+sys.path.append(parent_dir)
+os.chdir(parent_dir)
+from libcity.data.dataset import POIRepresentationDataset
+from libcity.evaluator import POIRepresentationEvaluator
+from libcity.utils.utils import get_logger
+
 def ensure_dir(dir_path):
     """Make sure the directory exists, if it does not exist, create it.
 
@@ -189,6 +202,10 @@ class POIEvaluator():
         self.data_path = './raw_data/' + self.dataset + '/'
         self.output_dim = config.get('output_dim', 128)
         self.poi_embedding_path = config.get('path', None)
+        if torch.cuda.is_available() and config.get('gpu_id', None) is not None:
+            self.device = torch.device(f"cuda:{config.get('gpu_id')}")
+        else:
+            self.device = torch.device("cpu")
 
     def collect(self, batch):
         pass
@@ -298,6 +315,34 @@ class POIEvaluator():
         y_truth, useful_index, poi_micro_f1, poi_macro_f1 = self._valid_clf(
             poi_emb)
         self.evaluation_cluster(y_truth,useful_index,poi_emb,'poi')
+        config = {
+            'dataset': self.dataset,
+            'model': self.model, # 模型名称 
+            'exp_id': 0,
+            'embed_size': self.output_dim,
+            'd_model': self.output_dim,
+            'output_dim': self.output_dim,
+            "device": self.device,
+            "representation_object": 'poi',
+            "save_result": True,
+            "is_static": True,
+            'cache': False,
+            'task_epoch': 1, # 下游任务模型训练轮数
+            'pre_len': 1,
+            'poi_min_frequency': 1,
+            'poi_min_len': 5,
+            'poi_min_poi_cnt': 1,
+            'test_scale': 0.2
+        }
+        logger = get_logger(config)
+        embedding = poi_emb
+
+        poi_dataset = POIRepresentationDataset(config)
+        data_feature = poi_dataset.get_data_feature()
+        embedding = np.concatenate([embedding, np.zeros((1, self.output_dim))], axis=0) # 加一行 0
+        data_feature['embed_layer'] = torch.tensor(embedding, device=config['device'], requires_grad=False)
+        evaluator = POIRepresentationEvaluator(config, data_feature)
+        evaluator.evaluate()
         #poi_mae, poi_rmse = self._valid_poi_flow(poi_emb)
         #poi_bilinear_mae, poi_bilinear_rmse = self._valid_poi_flow_using_bilinear(poi_emb)
         #
@@ -338,6 +383,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--path', type=str)
+parser.add_argument('--gpu_id', type=int)
 # 解析参数
 args = parser.parse_args()
 args_dict = vars(args)
