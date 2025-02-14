@@ -1,4 +1,4 @@
-# [ICDE2025]Representing All Categories of Map Entities based on Hybrid Graph Modeling
+# [IJCAI]HygMap: Representing All Types of Map Entities via Heterogeneous Hypergraph
 
 ## Data
 
@@ -7,8 +7,6 @@ Both datasets (Porto, San Francisco) are from the **veccity** project.[Bigscity-
 The data after **Map Entity Modeling** is stored in the https://bhpan.buaa.edu.cn/link/AAB0C8968DA0CC4208B383FAC92817465B.
 
 ## Code
-
-HeteroGE:libcity/model/STRL/IntraEncoder.py
 
 HyperGE:libcity/model/STRL/InterEncoder.py
 
